@@ -1,0 +1,40 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aztec admin panel</title>
+</head>
+<body>
+    Oh hello there
+
+    <h2>You're on port <%=port %>.</h2>
+
+    <script>
+        const socket = new WebSocket("ws://" + location.hostname + ":<%=port %>");
+        var data = <%-JSON.stringify(data) %>;
+
+        socket.onopen = e => {
+            console.log("Connected to WebSocket");
+        }
+
+        socket.onmessage = e => {
+            var newData = JSON.parse(e.data);
+            Object.assign(data, newData);
+            console.log("Got updated data:", newData, "\\nFull object:", data);
+        }
+
+        socket.onclose = e => {
+            if(e.wasClean) {
+                console.warn("Server closed connection cleanly. Why?");
+            } else {
+                console.error("Connection lost");
+                alert("Disconnected websocket, reload to see updates");
+            }
+        }
+
+        socket.onerror = e => {
+            console.error(e);
+        }
+    </script>
+</body>
+</html>
