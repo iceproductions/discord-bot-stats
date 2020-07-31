@@ -1,17 +1,93 @@
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aztec admin panel</title>
 </head>
-<body>
-    Oh hello there
 
+<body>
     <h2>You're on port <%=port %>.</h2>
+    <p id="reference">Please wait, the page is loading. <i>Taking too long? Check if you have enabled javascript</i></p>
+
+    <h4>Services active</h4>
+    <table>
+        <thead>
+            <th>Service</th>
+            <th>Status</th>
+        </thead>
+        <tbody id="data">
+        </tbody>
+    </table>
+
+    <h4>Commands loaded</h4>
+    <table id="loaded_table">
+        <thead>
+            <th>Group</th>
+            <th>Commands</th>
+        </thead>
+        <tbody id="loaded_data"></tbody>
+    </table>
+
+    <h3>Statistics</h3>
+    <h4>Guild statistics</h4>
+    <table id="guild_table">
+        <thead>
+            <th>Guild</th>
+            <th>Commands used</th>
+        </thead>
+        <tbody id="guild_data"></tbody>
+    </table>
+
+    <h4>Most used commands</h4>
+    <table id="command_table">
+        <thead>
+            <th>Command</th>
+            <th>Times used</th>
+        </thead>
+        <tbody id="command_data"></tbody>
+    </table>
 
     <script>
         const socket = new WebSocket("ws://" + location.hostname + ":<%=port %>");
         var data = <%-JSON.stringify(data) %>;
+
+        var tableBody = document.getElementById("data");
+        var guildTable = document.getElementById("guild_data");
+        var commandTable = document.getElementById("command_data");
+        var loadedTable = document.getElementById("loaded_data");
+
+        function updateTable(table, name, data) {
+            let el = document.getElementById("data_" + table.replace(/ /ig, "_") + "_" + name.replace(/ /ig, "_"));
+            if (!el) {
+                el = document.createElement("tr");
+                el.id = "data_" + table.replace(/ /ig, "_") + "_" + name.replace(/ /ig, "_");
+                let name = document.createElement("td");
+                name.innerText = name;
+                el.appendChild(name);
+                el.appendChild(document.createElement("td"));
+                table.appendChild(el);
+            }
+        }
+
+        function render() {
+            for (var key in data) {
+                if (!["dbl", "lang", "reddit", "serverReady", "ready"].includes(key)) continue;
+                updateTable(tableBody, key, data[key] === null ? "Loading" : (data[key] === false ? "Offline" : "Active"));
+            }
+
+            for(var command in data.loaded) {
+                updateTable(tableBody, key, data[key] === null ? "Loading" : (data[key] === false ? "Offline" : "Active"));
+            }
+
+            sortTable(1, document.getElementById("guild_table"));
+            sortTable(1, document.getElementById("command_table"));
+            sortTable(1, document.getElementById("loaded_table"));
+        }
+
+        render();
+
+        document.getElementById("reference").innerText = "Aztec developer statistics";
 
         socket.onopen = e => {
             console.log("Connected to WebSocket");
@@ -21,10 +97,12 @@
             var newData = JSON.parse(e.data);
             Object.assign(data, newData);
             console.log("Got updated data:", newData, "\\nFull object:", data);
+
+            render();
         }
 
         socket.onclose = e => {
-            if(e.wasClean) {
+            if (e.wasClean) {
                 console.warn("Server closed connection cleanly. Why?");
             } else {
                 console.error("Connection lost");
@@ -35,6 +113,47 @@
         socket.onerror = e => {
             console.error(e);
         }
+
+        function sortTable(n, table) {
+            var rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+            switching = true;
+            dir = "asc";
+            while (switching) {
+                switching = false;
+                rows = table.rows;
+                for (i = 1; i < (rows.length - 1); i++) {
+                    shouldSwitch = false;
+                    x = rows[i].getElementsByTagName("TD")[n];
+                    y = rows[i + 1].getElementsByTagName("TD")[n];
+                    if (dir == "asc") {
+                        var xv = Number(x.innerText) || x.innerText.toLowerCase();
+                        var yv = Number(y.innerText) || y.innerText.toLowerCase();
+                        if (xv > yv) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    } else if (dir == "desc") {
+                        var xv = Number(x.innerText) || x.innerText.toLowerCase();
+                        var yv = Number(y.innerText) || y.innerText.toLowerCase();
+                        if (xv < yv) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                }
+                if (shouldSwitch) {
+                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                    switching = true;
+                    switchcount++;
+                } else {
+                    if (switchcount == 0 && dir == "asc") {
+                        dir = "desc";
+                        switching = true;
+                    }
+                }
+            }
+        }
     </script>
 </body>
+
 </html>
