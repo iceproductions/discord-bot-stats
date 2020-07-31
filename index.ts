@@ -82,7 +82,7 @@ var changed: {
 var data: {
     [key: string]: any,
     dbl: boolean | null,
-    reddit: boolean,
+    reddit: boolean | null,
     lang: boolean,
     serverReady: boolean,
     ready: boolean,
@@ -93,7 +93,7 @@ var data: {
     errors: string[]
 } = {
     dbl: null,
-    reddit: false,
+    reddit: null,
     lang: false,
     serverReady: false,
     ready: false,
@@ -151,7 +151,11 @@ async function parseLine(line: string, time: Date = new Date()) {
 
     switch(type) {
         case "DBL":
-            console.warn(text);
+            if(text === "Skipping DBL API integration as no token is present in config.") {
+                data.dbl = false;
+            } else if(data.dbl === null) {
+                data.dbl = true;
+            }
             break;
         case "REJECTION":
             data.errors[errorPt] = (data.errors[errorPt] || "") + text;
@@ -235,6 +239,19 @@ if(flags.stdin) {
     }
     console.log("End of input");
 } else {
-    console.error("Using services is not yet supported");
-    Deno.exit(1);
+    var service = String(flags._[0]);
+    const s = Deno.run({
+        cmd: ["journalctl", "-afu", service, "-o", "short-unix"],
+        input: "null",
+        output: "piped",
+        stderr: "null"
+    });
+    // Short-unix format: timestamp hostname process[pid]: message
+    for await (const line of readLines(s.stdout as Deno.Reader)) {
+        var timestamp = line.substr(0, line.indexOf(" "));
+        var l = line.substr(line.indexOf(":"));
+        await parseLine(l, new Date(parseFloat(timestamp)));
+    }
+    console.log("End of service output");
+    console.log("Something may have went wrong");
 }
